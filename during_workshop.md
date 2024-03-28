@@ -75,7 +75,7 @@ The first thing to do is to create a local function project. In Azure Functions,
 Run the following command from **the root of this repository, not inside `initialApp/`.**
 
 ```
-func init AcmeSubProject --python --model V1
+func init AcmeSubProject --python
 ```
 
 This will create a new folder called `AcmeSubProject`, which you will want to navigate into.
@@ -87,55 +87,17 @@ cd AcmeSubProject
 Next, we want to create a function that will be triggered by an HTTP request, so we will use the 'HTTP trigger' template.
 
 ```
-func new --name HttpEndpoint --template "HTTP trigger" --authlevel "anonymous"
+func new --name AddSubtitle --template "HTTP trigger"
 ```
+(when prompted choose the ANONYMOUS option for the Auth Level)
 
 This creates a new subfolder, containing the code for this function:
 
-#### function.json
+#### function_app.py
 
-``` JSON
-{
-  "scriptFile": "__init__.py",
-  "bindings": [
-    {
-      "authLevel": "Anonymous",
-      "type": "httpTrigger",
-      "direction": "in",
-      "name": "req",
-      "methods": [
-        "get",
-        "post"
-      ]
-    },
-    {
-      "type": "http",
-      "direction": "out",
-      "name": "$return"
-    }
-  ]
-}
-```
-
-This is a configuration file that defines the *trigger* and *bindings* for the function.
-
-*Triggers* are what causes a function to run, like an HTTP Request or a Timer. They have associated data, that can be passed into the function as a parameter. In the above instance the HTTP Trigger passes in its data as a parameter named `req`. Every Azure Function has exactly one trigger, with a trigger effectively being a special sort of *input binding*.
-
- A *binding* is how a function is connected to another resource and they can be either an *input binding* or an *output binding*. Input bindings receive data from a data source and pass it into the function as parameters. Output bindings take data from the function and send it to another resource, for example returning an HTTP response or creating a message in a Message Queue.
-
- Bindings prevent you from needing to hardcode access to other services within the function itself, they are declared in this JSON file. A function can have zero or many input and/or output bindings.
-
- The `scriptFile` property declares the name of the function that will be run.
-
- #### \_\_init\_\_.py
-
-``` Python
-import logging
-
-import azure.functions as func
-
-
-def main(req: func.HttpRequest) -> func.HttpResponse:
+``` python
+@app.route(route="AddSubtitle", auth_level=func.AuthLevel.ANONYMOUS)
+def HttpEndpoint(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     name = req.params.get('name')
@@ -154,10 +116,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
              "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
              status_code=200
         )
-
 ```
 
-\_\_init\_\_.py contains a `main()` Python function, which is called when the function is triggered. It takes an HTTP Request as the parameter `req` and returns an HTTP Response, as per the configuration in *function.json*.
+The `@app.route` decorator declares the function as an HTTP Trigger function. 
+
+*Triggers* are what causes a function to run, like an HTTP Request or a Timer. They have associated data, that can be passed into the function as a parameter. In the above instance the HTTP Trigger passes in its data as a parameter named `req`. Every Azure Function has exactly one trigger, with a trigger effectively being a special sort of *input binding*.
+
+ A *binding* is how a function is connected to another resource and they can be either an *input binding* or an *output binding*. Input bindings receive data from a data source and pass it into the function as parameters. Output bindings take data from the function and send it to another resource, for example returning an HTTP response or creating a message in a Message Queue.
+
+ A function can have zero or many input and/or output bindings.
 
 Before we worry about hosting the function on Azure itself we are going to test that in runs locally.
 
@@ -168,7 +135,7 @@ Before we worry about hosting the function on Azure itself we are going to test 
 - Towards the end of the output it should give you a URL. Copy this into a browser and append the query string `?name=<YOUR_NAME>` (so the full URL looks something like `http://localhost:7071/api/HttpEndpoint?name=Alice`)
 - You should hopefully see a message returned from the function
 
-> You can debug an Azure function locally by using the Azure Functions extension to generate the correct launch config. If you install it, it should detect the Function when you open the project and a prompt will appear to set up initial config. [See here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-develop-vs-code?tabs=python) for details of developing Functions with the extension.
+#### Writing Python Code for Azure Functions
 
 Now that we have it running locally, we want to replace the code in the default function with something similar to the dummy code that we are using in our existing application. However, we will change it so we can send the text that we want to translate to it. Change \_\_init\_\_.py to look like the following:
 
@@ -177,9 +144,10 @@ import logging
 import time
 import azure.functions as func
 
+@app.route(route="AddSubtitle", auth_level=func.AuthLevel.ANONYMOUS)
+def HttpEndpoint(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('HTTP trigger function received a request.')
     start = time.time()
 
     req_body = req.get_json()
@@ -193,10 +161,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         f"Processing took {str(processingTime)} seconds. Translation is: {subtitle}",
         status_code=200
     )
-
 ```
 
 Once you've updated the code, you can run `func start` again to run the new version.
+
+> If you'd like to debug the Azure Function App locally you'll need to open the Function App subfolder (`AcmeSubProject`) in VSCode (using File => Open Folder) and accept the following prompt: 
+> ![Azure Function Init Prompt](./images/Azure%20Functions%20Setup.png)
+> This should generate a `launch.json` file so that you can debug the application using the Run & Debug button on the Activity Bar
 
 The function now expects us to send a JSON object to it containing the subtitle to translate, so instead of using the browser to test it, we will use Thunder Client. Open up Thunder Client and select to create a new request (File > New...). 
 - Set the URL to the URL returned by `func start` command
@@ -212,10 +183,14 @@ The function now expects us to send a JSON object to it containing the subtitle 
 
 ![Thunder Client](./images/Thunder-Client-SendRequest.png) 
 
-Take a moment to customise the "httpTrigger" binding a little.
-- We don't want to accept GET requests, so remove that from the list of accepted methods in `function.json`.
-- Rename the binding from "req" to "request". This means updating the "name" property for that binding in `function.json` as well as the corresponding function parameter in `__init__.py`. Each binding in `function.json` needs a corresponding parameter in the `main` function in `__init__.py`, except one output binding can use `main`'s return value instead, if it has name equal to "$return".
+Take a moment to customise the "HttpEndpoint" function a little (by adding parameters to `@app.route`).
+- We only want the function to accept POST requests, so specify this as a parameter in `@app.route`
+- Rename the argument of the function from `req` to `request` (just changing the name of the argument in the function will **not** work!)
  
+> For the best experience we recommend setting up code completion by opening a terminal in the AcmeSubProject folder and install the dependencies by running `pip install -r requirements.txt`. You should then be able to test this is working by typing `@app.` and seeing the autocompletion options:
+> ![Autocomplete example](images/Azure%20Functions%20Autocomplete.png)
+> If this isn't working it's worth trying to restart the Python interpreter ("Python: Restart Interpreter" from the VSCode Command Window)
+
 ### Step 2 - Hosting on Azure
 
 > _**Please delete your app service and app service plan from Part 1 before following these instructions. If you don't, you may see an error when running `az functionapp create` below)**_
@@ -235,7 +210,7 @@ az storage account create --name <STORAGE_NAME> --location uksouth --resource-gr
 - A _Function App_: This is the container for your function code within Azure, it can be thought of the Azure equivalent to your local function project.
 
 ```
-az functionapp create --resource-group <RG_NAME> --consumption-plan-location uksouth --runtime python --runtime-version 3.8 --functions-version 4 --name <APP_NAME> --storage-account <STORAGE_NAME> --os-type linux
+az functionapp create --resource-group <RG_NAME> --consumption-plan-location uksouth --runtime python --runtime-version 3.11 --functions-version 4 --name <APP_NAME> --storage-account <STORAGE_NAME> --os-type linux
 ```
 
 > `<STORAGE_NAME>` should be the name of the Storage Account you just created. Replace `<APP_NAME>` with a name that is unique across all of Azure (as this application will be hosted at `<APP_NAME>.azurewebsites.net`). For example you could use your initials plus today's date e.g. `abc-01-01-1900-functions`. It must also differ from the app name you used in Part 1. If you get a "usage error", check that the directory you are in (or any parent directory) doesn't already contain a `.azure/config` file.
@@ -298,9 +273,6 @@ It is worth checking out the [Table Storage output binding documentation](https:
 > As you are using the same Storage Account for your Azure Table Storage and for your Azure Functions App you do not need to set the `connection` property for the binding in _function.json_ as it will default to use the correct connection. 
 
 To run the function locally you will need to run the command `func azure functionapp fetch-app-settings <app_name>` to provide your local instance with the correct connection details.
-
-__You will also need to ensure that the [Extension Bundle](https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-register#extension-bundles) version in _host.json_ is set to `"version": "[2.*, 3.0.0)"`, since later versions (3.* and 4.*) are incompatible with Table Storage at the time of writing.__
-
 
 Run the function locally with `func start` before trying to publish it. This way you get faster feedback and can see error messages in your terminal. Once you are happy it works you can publish it.
 
