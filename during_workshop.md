@@ -345,18 +345,18 @@ We now want to change our existing _HttpEndpoint_ function to send messages to t
 }
 ```
 
-2. Add a Queue storage output binding.
+2. [Add a Queue storage output binding](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-output?tabs=python-v2%2Cisolated-process%2Cnodejs-v4%2Cextensionv5&pivots=programming-language-python#example).
 3. Using the binding, create a message per language. Messages in queue storage can be any string up to 64KB in size, however if we use a JSON format it allows other bindings to read from the message, which will come in useful later. We want the JSON to contain the row key for the subtitle in Azure Table storage, and the language code, e.g.:
 
-``` JSON
-{
-    "rowKey": "50949d7f-9dcb-4991-8b64-49a8fe002f0b",
-    "languageCode": "de"
-}
-```
-> To create a JSON string from a Python object you can use [json.dumps](https://docs.python.org/3/library/json.html)
-
-Have a look at the [Queue storage output binding documentation](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-queue-output?tabs=python) to help you achieve this. Like with the Azure Table binding, you don't need to declare the `connection` property in _function.json_ as it will default to using the correct one, as the queue is setup in the same storage account as the function.
+    ``` JSON
+    {
+        "rowKey": "50949d7f-9dcb-4991-8b64-49a8fe002f0b",
+        "languageCode": "de"
+    }
+    ```
+    *  To create a JSON string from a Python object you can use [json.dumps](https://docs.python.org/3/library/json.html)
+    * To output more than one message at once to the queue you'll need to pass it an array of strings rather than just one string (multiple calls to `msg.set()` will only store the last message!). This advice is hidden [under the v1 programming model instructions](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-output?tabs=python-v1%2Cisolated-process%2Cnodejs-v4%2Cextensionv5&pivots=programming-language-python#example):
+    ![Queue Storage Multiple Outputs](/images/Queue%20Storage%20Multiple.png)
 
 If you are successful you should be able to see messages being created in the queue in the Azure portal.
 
@@ -364,19 +364,29 @@ If you are successful you should be able to see messages being created in the qu
 
 Next we want to add a new function to your function project that reads messages off the queue.
 
-1. [Create a new function](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Ccsharp%2Cbash#create-func) that uses a [Queue Storage trigger](https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-trigger?tabs=python). Make sure to set the binding to look at the correct queue by changing _function.json_ for the new function.
-    * The docs suggest using the `--template "Queue Trigger"` argument to `func new`, however at time of writing the relevant Python template is actually called "Azure Queue Storage trigger"
+1. [Create a new function](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Ccsharp%2Cbash#create-func) that uses a [Queue Storage trigger](https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-storage-queue-trigger?tabs=python). Make sure to set the binding to look at the correct queue.
 2. For now you can print the contents of the message received to the logs.
 
-Run your function project locally by running `func start` from the AcmeSubProject folder, not the individual function. It will start both. You should be able to see in the logs your queue items being processed by this new function, once you have sent a request to your HTTP endpoint function.
+You can then start both functions at once by running `func start` from the `AcmeSubProject` folder. You should be able to see in the logs your queue items being processed by this new function, once you have sent a request to your HTTP endpoint function.
 
 If you have a look at the queue in the Azure Portal, you should see that the queue has now been cleared, as the items have been processed.
 
 ### Step 4 - Retrieve subtitle from Azure Table
 
-We can now add an [Azure Table storage input binding](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-input?tabs=python) to retrieve the subtitle.
+We can now add an Azure Table storage input binding to retrieve the subtitle.
+* [This isn't terribly well documented](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-input?tabs=python) with the v2 programming model but it's very similar to the input binding except that the argument is now of type `str` rather `func.Out[str]`:
+    ```python
+    @app.table_input(arg_name="table",
+        connection="AzureWebJobsStorage",
+        table_name="AcmeSubtitles",
+        partition_key="")
+    def process_queue_message(
+        queue: func.QueueMessage, 
+        table: str
+    ):
+    ```
+    * The `table` string will be populated with entire contents of the table (and so you'll need to filter out the row you want via the row key from the Queue message)
 
-> In the binding configuration you can set the `rowKey` property to `"{rowKey}"`. This works because when the payload of your trigger is JSON (in our case this is the message that we created in Queue storage) you can refer to properties of that JSON in other bindings. See [the documentation for more information](https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-expressions-patterns#json-payloads).
 
 Log the subtitle you have retrieved from Table Storage to ensure it is working correctly.
 
@@ -386,7 +396,7 @@ We now have a function that receives the language code and accesses the subtitle
 
 1. Create a new table within Azure Table storage.
 2. Process the subtitle, for the moment we won't actually translate the subtitle, instead use the `upper()` method on strings to convert it to uppercase.
-3. Add an Azure Table output binding and save the processed subtitle, and the language code, to your new table.
+3. Add a Azure Table output binding and save the processed subtitle, and the language code, to your new table.
 
 
 ## Part 5 (Optional) - Translating using Azure Translator
@@ -416,8 +426,6 @@ Follow [this tutorial](https://docs.microsoft.com/en-us/azure/storage/blobs/stor
 
 Create a new Python Azure Function App which contains a [Blob Storage Trigger](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-blob-trigger?tabs=python) to read in images as an input stream, when they are added to Blob Storage.
 
-At the time of writing Azure does not support having a Linux app and a Windows app in the same resource group ([but this is planned to be fixed very soon](https://docs.microsoft.com/en-us/azure/app-service/overview#limitations)) so you may need a second resource group. Ask a tutor to provide one if they haven't already.
-
 As your blob storage will be in a separate resource group from your function app you cannot rely on the connection to it to be automatically populated in your function app. To allow a connection you need to do the following, once you have created the function app through the CLI:
 
 - [Get the connection string for the Azure Storage Account that contains your images.](https://docs.microsoft.com/en-us/cli/azure/storage/account?view=azure-cli-latest#az_storage_account_show_connection_string)
@@ -427,7 +435,7 @@ As your blob storage will be in a separate resource group from your function app
 ```
 func azure functionapp fetch-app-settings <FunctionAppName>
 ```
-- Update the `connection` property in your _function.json_ file to reference the name of your app setting that contains your conenction string
+- Update the `connection` property in your blob storage trigger to refer to this connection string
 
 ### Step 3 - Using the Azure Face API
 
