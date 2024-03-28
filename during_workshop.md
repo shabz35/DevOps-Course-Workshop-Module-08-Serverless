@@ -184,7 +184,7 @@ The function now expects us to send a JSON object to it containing the subtitle 
 ![Thunder Client](./images/Thunder-Client-SendRequest.png) 
 
 Take a moment to customise the "HttpEndpoint" function a little (by adding parameters to `@app.route`).
-- We only want the function to accept POST requests, so specify this as a parameter in `@app.route`
+- We only want the function to accept POST requests, so specify this as a `methods` parameter in `@app.route`
 - Rename the argument of the function from `req` to `request` (just changing the name of the argument in the function will **not** work!)
  
 > For the best experience we recommend setting up code completion by opening a terminal in the AcmeSubProject folder and install the dependencies by running `pip install -r requirements.txt`. You should then be able to test this is working by typing `@app.` and seeing the autocompletion options:
@@ -264,15 +264,27 @@ In the [Azure Portal](https://portal.azure.com/) you should now be able to find 
 
 We now want to change our function so it saves the subtitle to the Azure Storage table that has just been created. To do this you will need to:
 
-1. Add a new binding definition to the _function.json_ file.
-2. Change your Python function to use the new binding.
+1. Add an `@app.table_output()` decorator to your Azure Function: 
+    ```python
+    @app.table_output(
+        arg_name="table",
+        connection="AzureWebJobsStorage",
+        table_name="AcmeSubtitles",
+        partition_key=""
+    )
+    ```
+    * `arg_name` refers to the name of the parameter we'll be adding to our Azure Function (so that we can add new entries to the targe table)
+    * "AzureWebJobsStorage" refers to a storage acount connection string located in `local.settings.json` (to be populated later)
+    * `table_name` can be anything you like (as the Azure Function will create a new table if it's missing)
+    * `partition_key` isn't important for us ([as we won't have enough traffic to max out throughput on one partition](https://learn.microsoft.com/en-us/azure/storage/tables/scalability-targets)) so we've left it empty
+2. Change your Python function to use the new binding:
+    * [Here is an example of using a table output binding](https://learn.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-output?tabs=isolated-process%2Cnodejs-v4%2Ctable-api&pivots=programming-language-python#example) using the old programming model (where decorators weren't used and there was a `function.json` file instead)
+        * In our case we'll be using `table: func.Out[str]` rather than `message: func.Out[str]` as the new parameter to the Azure Function
+
 3. You can remove the `time.sleep(5)` line from your Python function at this point
 
-It is worth checking out the [Table Storage output binding documentation](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-output?tabs=python) to help you achieve this task.
-
-> As you are using the same Storage Account for your Azure Table Storage and for your Azure Functions App you do not need to set the `connection` property for the binding in _function.json_ as it will default to use the correct connection. 
-
 To run the function locally you will need to run the command `func azure functionapp fetch-app-settings <app_name>` to provide your local instance with the correct connection details.
+* This will populate the "AzureWebJobsStorage" connection string in the `local.settings.json` file (as mentioned above)
 
 Run the function locally with `func start` before trying to publish it. This way you get faster feedback and can see error messages in your terminal. Once you are happy it works you can publish it.
 
