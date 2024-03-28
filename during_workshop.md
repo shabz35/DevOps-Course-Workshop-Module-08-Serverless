@@ -374,7 +374,7 @@ If you have a look at the queue in the Azure Portal, you should see that the que
 ### Step 4 - Retrieve subtitle from Azure Table
 
 We can now add an Azure Table storage input binding to retrieve the subtitle.
-* [This isn't terribly well documented](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-input?tabs=python) with the v2 programming model but it's very similar to the input binding except that the argument is now of type `str` rather `func.Out[str]`:
+* [At the time of writing this isn't documented for the v2 programming model](https://docs.microsoft.com/en-gb/azure/azure-functions/functions-bindings-storage-table-input?tabs=python) but it's very similar to the input binding except that the argument is now of type `str` rather `func.Out[str]`:
     ```python
     @app.table_input(arg_name="table",
         connection="AzureWebJobsStorage",
@@ -396,7 +396,7 @@ We now have a function that receives the language code and accesses the subtitle
 
 1. Create a new table within Azure Table storage.
 2. Process the subtitle, for the moment we won't actually translate the subtitle, instead use the `upper()` method on strings to convert it to uppercase.
-3. Add a Azure Table output binding and save the processed subtitle, and the language code, to your new table.
+3. Add an Azure Table output binding and save the processed subtitle, and the language code, to your new table.
 
 
 ## Part 5 (Optional) - Translating using Azure Translator
