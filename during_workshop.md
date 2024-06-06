@@ -185,7 +185,8 @@ The function now expects us to send a JSON object to it containing the subtitle 
 
 Take a moment to customise the "HttpEndpoint" function a little (by adding parameters to `@app.route`).
 - We only want the function to accept POST requests, so specify this as a `methods` parameter in `@app.route`
-- Rename the argument of the function from `req` to `request` (just changing the name of the argument in the function will **not** work!)
+- Rename the argument of the function from `req` to `request` (hint: *just* changing the name of the argument in the function will **not** work!)
+
  
 > For the best experience we recommend setting up code completion by opening a terminal in the AcmeSubProject folder and install the dependencies by running `pip install -r requirements.txt`. You should then be able to test this is working by typing `@app.` and seeing the autocompletion options:
 > ![Autocomplete example](images/Azure%20Functions%20Autocomplete.png)
