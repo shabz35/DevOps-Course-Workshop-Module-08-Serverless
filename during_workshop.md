@@ -165,8 +165,10 @@ def HttpEndpoint(req: func.HttpRequest) -> func.HttpResponse:
 
 Once you've updated the code, you can run `func start` again to run the new version.
 
-> If you'd like to debug the Azure Function App locally you'll need to open the Function App subfolder (`AcmeSubProject`) in VSCode (using File => Open Folder) and accept the following prompt: 
+> If you'd like to debug the Azure Function App locally you'll need to install the `Azure Functions` extension and open the Function App subfolder (`AcmeSubProject`) in VSCode (using File => Open Folder) and accept the following prompt:
+
 > ![Azure Function Init Prompt](./images/Azure%20Functions%20Setup.png)
+
 > This should generate a `launch.json` file so that you can debug the application using the Run & Debug button on the Activity Bar
 
 The function now expects us to send a JSON object to it containing the subtitle to translate, so instead of using the browser to test it, we will use Thunder Client. Open up Thunder Client and select to create a new request (File > New...). 
@@ -189,7 +191,9 @@ Take a moment to customise the "HttpEndpoint" function a little (by adding param
 
  
 > For the best experience we recommend setting up code completion by opening a terminal in the AcmeSubProject folder and install the dependencies by running `pip install -r requirements.txt`. You should then be able to test this is working by typing `@app.` and seeing the autocompletion options:
+
 > ![Autocomplete example](images/Azure%20Functions%20Autocomplete.png)
+
 > If this isn't working it's worth trying to restart the Python interpreter ("Python: Restart Interpreter" from the VSCode Command Window)
 
 ### Step 2 - Hosting on Azure
