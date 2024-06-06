@@ -91,7 +91,7 @@ func new --name AddSubtitle --template "HTTP trigger"
 ```
 (when prompted choose the ANONYMOUS option for the Auth Level)
 
-This creates a new subfolder, containing the code for this function:
+This updates the created code, adding the code for this function:
 
 #### function_app.py
 
